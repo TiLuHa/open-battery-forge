@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT battery_id as \"battery_id!\"\n        FROM tests\n        WHERE id = ?\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "battery_id!",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tests",
+            "name": "battery_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "d737425aaa6e4f8b1cc7beef0a07f64b40879f4c24f3a3c89a09c8be3e4d8471"
+}

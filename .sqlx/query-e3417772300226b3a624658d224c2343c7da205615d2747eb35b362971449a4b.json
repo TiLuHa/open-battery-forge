@@ -1,0 +1,206 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            id as \"id!\",\n            battery_id as \"battery_id!\",\n            approved as \"approved!: bool\",\n            device_id as \"device_id!\",\n            mode as \"mode!\",\n            voltage_before_test_mv,\n            target_current_ma,\n            target_power_w,\n            cutoff_voltage_mv,\n            cutoff_time_min,\n            charge_voltage_mv,\n            charge_cutoff_current_ma,\n            measured_capacity_mah,\n            measured_energy_mwh,\n            end_voltage_mv,\n            notes\n        FROM tests\n        WHERE id = ?\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tests",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "battery_id!",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tests",
+            "name": "battery_id"
+          }
+        }
+      },
+      {
+        "name": "approved!: bool",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tests",
+            "name": "approved"
+          }
+        }
+      },
+      {
+        "name": "device_id!",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tests",
+            "name": "device_id"
+          }
+        }
+      },
+      {
+        "name": "mode!",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tests",
+            "name": "mode"
+          }
+        }
+      },
+      {
+        "name": "voltage_before_test_mv",
+        "ordinal": 5,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tests",
+            "name": "voltage_before_test_mv"
+          }
+        }
+      },
+      {
+        "name": "target_current_ma",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tests",
+            "name": "target_current_ma"
+          }
+        }
+      },
+      {
+        "name": "target_power_w",
+        "ordinal": 7,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tests",
+            "name": "target_power_w"
+          }
+        }
+      },
+      {
+        "name": "cutoff_voltage_mv",
+        "ordinal": 8,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tests",
+            "name": "cutoff_voltage_mv"
+          }
+        }
+      },
+      {
+        "name": "cutoff_time_min",
+        "ordinal": 9,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tests",
+            "name": "cutoff_time_min"
+          }
+        }
+      },
+      {
+        "name": "charge_voltage_mv",
+        "ordinal": 10,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tests",
+            "name": "charge_voltage_mv"
+          }
+        }
+      },
+      {
+        "name": "charge_cutoff_current_ma",
+        "ordinal": 11,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tests",
+            "name": "charge_cutoff_current_ma"
+          }
+        }
+      },
+      {
+        "name": "measured_capacity_mah",
+        "ordinal": 12,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tests",
+            "name": "measured_capacity_mah"
+          }
+        }
+      },
+      {
+        "name": "measured_energy_mwh",
+        "ordinal": 13,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tests",
+            "name": "measured_energy_mwh"
+          }
+        }
+      },
+      {
+        "name": "end_voltage_mv",
+        "ordinal": 14,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tests",
+            "name": "end_voltage_mv"
+          }
+        }
+      },
+      {
+        "name": "notes",
+        "ordinal": 15,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tests",
+            "name": "notes"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "e3417772300226b3a624658d224c2343c7da205615d2747eb35b362971449a4b"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        UPDATE tests\n        SET approved = 1\n        WHERE id = ?\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "8a1b23fae5536d78c960e536a219d23f8bf41102e36cbc7d7131e0cdc9360442"
+}

@@ -47,27 +47,32 @@ CREATE TABLE "modes" (
 	UNIQUE("description")
 );
 
-CREATE TABLE "tests" (
-	"id"	TEXT PRIMARY KEY,
-	"battery_id"	TEXT NOT NULL,
-	"approved" INTEGER NOT NULL DEFAULT 0,
-	"device_id"	TEXT NOT NULL,
-	"mode"	TEXT NOT NULL,
-	"voltage_before_test_mv" INTEGER,
-	"started_at"	TEXT NOT NULL,
-	"target_current_ma"	INTEGER,
-	"target_power_w"	INTEGER,
-	"cutoff_voltage_mv"	INTEGER,
-	"cutoff_time_min"	INTEGER,
-	"charge_voltage_mv"	INTEGER,
-	"charge_cutoff_current_ma"	INTEGER,
-	"ended_at"	TEXT,
-	"measured_capacity_mah"	INTEGER,
-	"measured_energy_mwh"	INTEGER,
-	"end_voltage_mv"	INTEGER,
-	"notes"	TEXT,
-	FOREIGN KEY("battery_id") REFERENCES "batteries"("battery_id"),
-	FOREIGN KEY("mode") REFERENCES "modes"("acronym")
+CREATE TABLE tests (
+    id INTEGER PRIMARY KEY,
+
+    battery_id TEXT NOT NULL,
+    approved INTEGER NOT NULL DEFAULT 0,
+
+    device_id TEXT NOT NULL,
+    mode TEXT NOT NULL,
+
+    voltage_before_test_mv INTEGER NOT NULL,
+
+    target_current_ma INTEGER,
+    target_power_w INTEGER,
+    cutoff_voltage_mv INTEGER,
+    cutoff_time_min INTEGER,
+    charge_voltage_mv INTEGER,
+    charge_cutoff_current_ma INTEGER,
+
+    measured_capacity_mah INTEGER,
+    measured_energy_mwh INTEGER,
+    end_voltage_mv INTEGER,
+
+    notes TEXT,
+
+    FOREIGN KEY(battery_id) REFERENCES batteries(battery_id),
+    FOREIGN KEY(mode) REFERENCES modes(acronym)
 );
 
 CREATE UNIQUE INDEX idx_tests_one_approved_per_battery
@@ -75,8 +80,8 @@ ON tests(battery_id)
 WHERE approved = 1;
 
 CREATE TABLE "test_sessions" (
-	"id"	TEXT PRIMARY KEY,
-	"test_id"	TEXT NOT NULL,
+	"id"	INTEGER PRIMARY KEY,
+	"test_id"	INTEGER NOT NULL,
 	"started_at"	TEXT NOT NULL,
 	"ended_at"	TEXT,
 	"reason"	TEXT,

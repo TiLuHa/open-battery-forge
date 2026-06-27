@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use ebc_hub::db_access::Storage;
-use ebc_hub::db_access::models::BatteryIntake;
+use ebc_hub::db_access::models::{BatteryIntake, Test};
 use ebc_hub::ebc_manager::EbcManager;
 use ebc_hub::{config::Config, ebc_manager_commands::EbcCommand};
 
@@ -41,13 +41,18 @@ fn print_help() {
     println!("  quit");
     println!("  battery-type list");
     println!(
-        "  battery-type add <manufacturer> <model> <chemistry> <nominal_voltage_mv> <nominal_capacity_mah>"
+        "  battery-type add <manufacturer> <model> <chemistry> <nominal_voltage_mv> <nominal_capacity_mah> <charge_termination_voltage_mv> <discharge_cutoff_voltage_mv>"
     );
     println!("  battery add <battery_id> <battery_type_id>");
     println!("  battery list");
     println!("  battery show <battery_id>");
     println!("  battery-intake show <battery_id>");
     println!("  battery-intake set <battery_id> <voltage_mv> <resistance_uohm>");
+    println!("  test create <battery_id> <device_id> <mode> <voltage_before_test_mv> <value1> <value2> <value3>");
+    println!("  test list");
+    println!("  test show <test_id>");
+    println!("  test approve <test_id>");
+    println!("  test delete <test_id>");
     println!();
     println!("Modes:");
     println!("  DSC-CC - Constant Current Discharge");
@@ -318,15 +323,23 @@ async fn main() -> Result<()> {
                 voltage_mv,
                 capacity_mah,
                 charge_termination_voltage_mv,
-                discharge_cutoff_voltage_mv
+                discharge_cutoff_voltage_mv,
             ] => {
                 let voltage_mv = voltage_mv.parse::<i64>()?;
                 let capacity_mah = capacity_mah.parse::<i64>()?;
-                let charge_termination_voltage_mv= charge_termination_voltage_mv.parse::<i64>()?;
-                let discharge_cutoff_voltage_mv= discharge_cutoff_voltage_mv.parse::<i64>()?;
+                let charge_termination_voltage_mv = charge_termination_voltage_mv.parse::<i64>()?;
+                let discharge_cutoff_voltage_mv = discharge_cutoff_voltage_mv.parse::<i64>()?;
 
                 let id = storage
-                    .create_battery_type(manufacturer, model, chemistry, voltage_mv, capacity_mah, charge_termination_voltage_mv, discharge_cutoff_voltage_mv)
+                    .create_battery_type(
+                        manufacturer,
+                        model,
+                        chemistry,
+                        voltage_mv,
+                        capacity_mah,
+                        charge_termination_voltage_mv,
+                        discharge_cutoff_voltage_mv,
+                    )
                     .await?;
 
                 println!("Created battery type with id {id}.");
@@ -358,39 +371,157 @@ async fn main() -> Result<()> {
             },
 
             ["battery-intake", "show", battery_id] => {
-    match storage.get_battery_intake(battery_id).await? {
-        Some(intake) => println!("{intake:#?}"),
-        None => println!("No intake data found for battery {battery_id}."),
-    }
-}
+                match storage.get_battery_intake(battery_id).await? {
+                    Some(intake) => println!("{intake:#?}"),
+                    None => println!("No intake data found for battery {battery_id}."),
+                }
+            }
 
-["battery-intake", "set", battery_id, voltage_mv, resistance_uohm] => {
-    let voltage_mv = voltage_mv.parse::<i64>()?;
-    let resistance_uohm = resistance_uohm.parse::<i64>()?;
+            [
+                "battery-intake",
+                "set",
+                battery_id,
+                voltage_mv,
+                resistance_uohm,
+            ] => {
+                let voltage_mv = voltage_mv.parse::<i64>()?;
+                let resistance_uohm = resistance_uohm.parse::<i64>()?;
 
-    let mut intake = storage
-        .get_battery_intake(battery_id)
-        .await?
-        .unwrap_or_else(|| BatteryIntake {
-            battery_id: battery_id.to_string(),
-            serial_number: None,
-            purchase_date: None,
-            delivery_date: None,
-            voltage_at_delivery_mv: None,
-            internal_resistance_at_delivery_uohm: None,
-            visual_inspection: None,
-            notes: None,
-        });
+                let mut intake = storage
+                    .get_battery_intake(battery_id)
+                    .await?
+                    .unwrap_or_else(|| BatteryIntake {
+                        battery_id: battery_id.to_string(),
+                        serial_number: None,
+                        purchase_date: None,
+                        delivery_date: None,
+                        voltage_at_delivery_mv: None,
+                        internal_resistance_at_delivery_uohm: None,
+                        visual_inspection: None,
+                        notes: None,
+                    });
 
-    intake.voltage_at_delivery_mv = Some(voltage_mv);
-    intake.internal_resistance_at_delivery_uohm = Some(resistance_uohm);
+                intake.voltage_at_delivery_mv = Some(voltage_mv);
+                intake.internal_resistance_at_delivery_uohm = Some(resistance_uohm);
 
-    storage.upsert_battery_intake(&intake).await?;
+                storage.upsert_battery_intake(&intake).await?;
 
-    println!(
-        "Updated intake for {battery_id}: {voltage_mv} mV, {resistance_uohm} µΩ."
-    );
-}
+                println!("Updated intake for {battery_id}: {voltage_mv} mV, {resistance_uohm} µΩ.");
+            }
+
+            [
+                "test",
+                "create",
+                battery_id,
+                device_id,
+                mode,
+                voltage_before_test_mv,
+                value1,
+                value2,
+                value3,
+            ] => {
+                let value1 = value1.parse::<i64>()?;
+                let value2 = value2.parse::<i64>()?;
+                let value3 = value3.parse::<i64>()?;
+                let voltage_before_test_mv = voltage_before_test_mv.parse::<i64>()?;
+
+                let mut test = Test {
+                    id: 0,
+                    battery_id: battery_id.to_string(),
+                    approved: false,
+                    device_id: device_id.to_string(),
+                    mode: mode.to_string(),
+
+                    voltage_before_test_mv,
+
+                    target_current_ma: None,
+                    target_power_w: None,
+                    cutoff_voltage_mv: None,
+                    cutoff_time_min: None,
+                    charge_voltage_mv: None,
+                    charge_cutoff_current_ma: None,
+
+                    measured_capacity_mah: None,
+                    measured_energy_mwh: None,
+                    end_voltage_mv: None,
+
+                    notes: None,
+                };
+
+                match *mode {
+                    "DSC-CC" => {
+                        test.target_current_ma = Some(value1);
+                        test.cutoff_voltage_mv = Some(value2);
+                        test.cutoff_time_min = Some(value3);
+                    }
+                    "DSC-CP" => {
+                        test.target_power_w = Some(value1);
+                        test.cutoff_voltage_mv = Some(value2);
+                        test.cutoff_time_min = Some(value3);
+                    }
+                    "CHG-CV" => {
+                        test.target_current_ma = Some(value1);
+                        test.charge_voltage_mv = Some(value2);
+                        test.charge_cutoff_current_ma = Some(value3);
+                    }
+                    _ => {
+                        println!("Unknown mode: {mode}");
+                        print!("> ");
+                        continue;
+                    }
+                }
+
+                let id = storage.create_test(&test).await?;
+
+                println!("Created test {id}.");
+            }
+
+            ["test", "list"] => {
+                let tests = storage.list_tests().await?;
+
+                if tests.is_empty() {
+                    println!("No tests found.");
+                } else {
+                    println!("ID | Battery | Mode | Approved | Device");
+                    println!("----------------------------------------");
+
+                    for t in tests {
+                        println!(
+                            "{} | {} | {} | {} | {}",
+                            t.id,
+                            t.battery_id,
+                            t.mode,
+                            if t.approved { "yes" } else { "no" },
+                            t.device_id
+                        );
+                    }
+                }
+            }
+
+            ["test", "show", id] => {
+                let id = id.parse::<i64>()?;
+
+                match storage.get_test(id).await? {
+                    Some(test) => println!("{test:#?}"),
+                    None => println!("Test not found: {id}"),
+                }
+            }
+
+            ["test", "approve", id] => {
+                let id = id.parse::<i64>()?;
+
+                storage.approve_test(id).await?;
+
+                println!("Approved test {id}.");
+            }
+
+            ["test", "delete", id] => {
+                let id = id.parse::<i64>()?;
+
+                storage.delete_test(id).await?;
+
+                println!("Deleted test {id}.");
+            }
 
             [] => {}
 

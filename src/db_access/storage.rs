@@ -1,7 +1,7 @@
 use color_eyre::eyre::Result;
 use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
 
-use crate::db_access::models::{Battery, BatteryIntake, BatteryType};
+use crate::db_access::models::{Battery, BatteryIntake, BatteryType, Test};
 
 #[derive(Clone)]
 pub struct Storage {
@@ -57,7 +57,7 @@ impl Storage {
         nominal_voltage_mv: i64,
         nominal_capacity_mah: i64,
         charge_termination_voltage_mv: i64,
-        discharge_cutoff_voltage_mv: i64
+        discharge_cutoff_voltage_mv: i64,
     ) -> Result<i64> {
         let result = sqlx::query!(
             r#"
@@ -195,6 +195,168 @@ impl Storage {
             intake.internal_resistance_at_delivery_uohm,
             intake.visual_inspection,
             intake.notes,
+        )
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+    pub async fn create_test(&self, test: &Test) -> Result<i64> {
+        let result = sqlx::query!(
+            r#"
+        INSERT INTO tests (
+            battery_id,
+            approved,
+            device_id,
+            mode,
+            voltage_before_test_mv,
+            target_current_ma,
+            target_power_w,
+            cutoff_voltage_mv,
+            cutoff_time_min,
+            charge_voltage_mv,
+            charge_cutoff_current_ma,
+            measured_capacity_mah,
+            measured_energy_mwh,
+            end_voltage_mv,
+            notes
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        "#,
+            test.battery_id,
+            test.approved,
+            test.device_id,
+            test.mode,
+            test.voltage_before_test_mv,
+            test.target_current_ma,
+            test.target_power_w,
+            test.cutoff_voltage_mv,
+            test.cutoff_time_min,
+            test.charge_voltage_mv,
+            test.charge_cutoff_current_ma,
+            test.measured_capacity_mah,
+            test.measured_energy_mwh,
+            test.end_voltage_mv,
+            test.notes,
+        )
+        .execute(&self.pool)
+        .await?;
+
+        Ok(result.last_insert_rowid())
+    }
+
+    pub async fn list_tests(&self) -> Result<Vec<Test>> {
+        let tests = sqlx::query_as!(
+            Test,
+            r#"
+        SELECT
+            id as "id!",
+            battery_id as "battery_id!",
+            approved as "approved!: bool",
+            device_id as "device_id!",
+            mode as "mode!",
+            voltage_before_test_mv,
+            target_current_ma,
+            target_power_w,
+            cutoff_voltage_mv,
+            cutoff_time_min,
+            charge_voltage_mv,
+            charge_cutoff_current_ma,
+            measured_capacity_mah,
+            measured_energy_mwh,
+            end_voltage_mv,
+            notes
+        FROM tests
+        ORDER BY id DESC
+        "#
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(tests)
+    }
+
+    pub async fn get_test(&self, id: i64) -> Result<Option<Test>> {
+        let test = sqlx::query_as!(
+            Test,
+            r#"
+        SELECT
+            id as "id!",
+            battery_id as "battery_id!",
+            approved as "approved!: bool",
+            device_id as "device_id!",
+            mode as "mode!",
+            voltage_before_test_mv,
+            target_current_ma,
+            target_power_w,
+            cutoff_voltage_mv,
+            cutoff_time_min,
+            charge_voltage_mv,
+            charge_cutoff_current_ma,
+            measured_capacity_mah,
+            measured_energy_mwh,
+            end_voltage_mv,
+            notes
+        FROM tests
+        WHERE id = ?
+        "#,
+            id
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(test)
+    }
+
+    pub async fn approve_test(&self, id: i64) -> Result<()> {
+        let mut tx = self.pool.begin().await?;
+
+        let test = sqlx::query!(
+            r#"
+        SELECT battery_id as "battery_id!"
+        FROM tests
+        WHERE id = ?
+        "#,
+            id
+        )
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| color_eyre::eyre::eyre!("Test not found: {id}"))?;
+
+        sqlx::query!(
+            r#"
+        UPDATE tests
+        SET approved = 0
+        WHERE battery_id = ?
+        "#,
+            test.battery_id
+        )
+        .execute(&mut *tx)
+        .await?;
+
+        sqlx::query!(
+            r#"
+        UPDATE tests
+        SET approved = 1
+        WHERE id = ?
+        "#,
+            id
+        )
+        .execute(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
+
+        Ok(())
+    }
+
+    pub async fn delete_test(&self, id: i64) -> Result<()> {
+        sqlx::query!(
+            r#"
+        DELETE FROM tests
+        WHERE id = ?
+        "#,
+            id
         )
         .execute(&self.pool)
         .await?;
