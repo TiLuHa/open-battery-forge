@@ -1,7 +1,9 @@
 use color_eyre::eyre::Result;
 use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
 
-use crate::db_access::models::{Battery, BatteryIntake, BatteryType, Sample, Test, TestSession};
+use crate::db_access::models::{
+    Battery, BatteryIntake, BatteryType, Sample, Test, TestConfig, TestMode, TestSession,
+};
 
 #[derive(Clone)]
 pub struct Storage {
@@ -202,6 +204,8 @@ impl Storage {
         Ok(())
     }
     pub async fn create_test(&self, test: &Test) -> Result<i64> {
+        let mut tx = self.pool.begin().await?;
+
         let result = sqlx::query!(
             r#"
         INSERT INTO tests (
@@ -210,62 +214,111 @@ impl Storage {
             device_id,
             mode,
             voltage_before_test_mv,
-            target_current_ma,
-            target_power_w,
-            cutoff_voltage_mv,
-            cutoff_time_min,
-            charge_voltage_mv,
-            charge_cutoff_current_ma,
             measured_capacity_mah,
             measured_energy_mwh,
             end_voltage_mv,
             notes
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         "#,
             test.battery_id,
             test.approved,
             test.device_id,
-            test.mode,
+            test.mode.acronym,
             test.voltage_before_test_mv,
-            test.target_current_ma,
-            test.target_power_w,
-            test.cutoff_voltage_mv,
-            test.cutoff_time_min,
-            test.charge_voltage_mv,
-            test.charge_cutoff_current_ma,
             test.measured_capacity_mah,
             test.measured_energy_mwh,
             test.end_voltage_mv,
             test.notes,
         )
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await?;
 
-        Ok(result.last_insert_rowid())
+        let test_id = result.last_insert_rowid();
+
+        match &test.config {
+            TestConfig::DischargeConstantCurrent {
+                target_current_ma,
+                cutoff_voltage_mv,
+                cutoff_time_min,
+            } => {
+                sqlx::query!(
+                    r#"
+                INSERT INTO discharge_cc_tests (
+                    test_id,
+                    target_current_ma,
+                    cutoff_voltage_mv,
+                    cutoff_time_min
+                )
+                VALUES (?, ?, ?, ?)
+                "#,
+                    test_id,
+                    target_current_ma,
+                    cutoff_voltage_mv,
+                    cutoff_time_min,
+                )
+                .execute(&mut *tx)
+                .await?;
+            }
+
+            TestConfig::DischargeConstantPower {
+                target_power_w,
+                cutoff_voltage_mv,
+                cutoff_time_min,
+            } => {
+                sqlx::query!(
+                    r#"
+                INSERT INTO discharge_cp_tests (
+                    test_id,
+                    target_power_w,
+                    cutoff_voltage_mv,
+                    cutoff_time_min
+                )
+                VALUES (?, ?, ?, ?)
+                "#,
+                    test_id,
+                    target_power_w,
+                    cutoff_voltage_mv,
+                    cutoff_time_min,
+                )
+                .execute(&mut *tx)
+                .await?;
+            }
+
+            TestConfig::ChargeConstantVoltage {
+                target_current_ma,
+                charge_voltage_mv,
+                charge_cutoff_current_ma,
+            } => {
+                sqlx::query!(
+                    r#"
+                INSERT INTO charge_cv_tests (
+                    test_id,
+                    target_current_ma,
+                    charge_voltage_mv,
+                    charge_cutoff_current_ma
+                )
+                VALUES (?, ?, ?, ?)
+                "#,
+                    test_id,
+                    target_current_ma,
+                    charge_voltage_mv,
+                    charge_cutoff_current_ma,
+                )
+                .execute(&mut *tx)
+                .await?;
+            }
+        }
+
+        tx.commit().await?;
+
+        Ok(test_id)
     }
 
     pub async fn list_tests(&self) -> Result<Vec<Test>> {
-        let tests = sqlx::query_as!(
-            Test,
+        let rows = sqlx::query!(
             r#"
-        SELECT
-            id as "id!",
-            battery_id as "battery_id!",
-            approved as "approved!: bool",
-            device_id as "device_id!",
-            mode as "mode!",
-            voltage_before_test_mv,
-            target_current_ma,
-            target_power_w,
-            cutoff_voltage_mv,
-            cutoff_time_min,
-            charge_voltage_mv,
-            charge_cutoff_current_ma,
-            measured_capacity_mah,
-            measured_energy_mwh,
-            end_voltage_mv,
-            notes
+        SELECT id as "id!"
         FROM tests
         ORDER BY id DESC
         "#
@@ -273,39 +326,134 @@ impl Storage {
         .fetch_all(&self.pool)
         .await?;
 
+        let mut tests = Vec::with_capacity(rows.len());
+
+        for row in rows {
+            if let Some(test) = self.get_test(row.id).await? {
+                tests.push(test);
+            }
+        }
+
         Ok(tests)
     }
 
     pub async fn get_test(&self, id: i64) -> Result<Option<Test>> {
-        let test = sqlx::query_as!(
-            Test,
+        let row = sqlx::query!(
             r#"
         SELECT
-            id as "id!",
-            battery_id as "battery_id!",
-            approved as "approved!: bool",
-            device_id as "device_id!",
-            mode as "mode!",
-            voltage_before_test_mv,
-            target_current_ma,
-            target_power_w,
-            cutoff_voltage_mv,
-            cutoff_time_min,
-            charge_voltage_mv,
-            charge_cutoff_current_ma,
-            measured_capacity_mah,
-            measured_energy_mwh,
-            end_voltage_mv,
-            notes
-        FROM tests
-        WHERE id = ?
+            t.id as "id!",
+            t.battery_id as "battery_id!",
+            t.approved as "approved!: bool",
+            t.device_id as "device_id!",
+            t.voltage_before_test_mv as "voltage_before_test_mv!",
+            t.measured_capacity_mah,
+            t.measured_energy_mwh,
+            t.end_voltage_mv,
+            t.notes,
+            m.acronym as "mode_acronym!",
+            m.description as "mode_description!"
+        FROM tests t
+        JOIN test_modes m
+            ON m.acronym = t.mode
+        WHERE t.id = ?
         "#,
             id
         )
         .fetch_optional(&self.pool)
         .await?;
 
-        Ok(test)
+        let Some(row) = row else {
+            return Ok(None);
+        };
+
+        let config = match row.mode_acronym.as_str() {
+            "DSC-CC" => {
+                let cfg = sqlx::query!(
+                    r#"
+                SELECT
+                    target_current_ma as "target_current_ma!",
+                    cutoff_voltage_mv as "cutoff_voltage_mv!",
+                    cutoff_time_min as "cutoff_time_min!"
+                FROM discharge_cc_tests
+                WHERE test_id = ?
+                "#,
+                    id
+                )
+                .fetch_one(&self.pool)
+                .await?;
+
+                TestConfig::DischargeConstantCurrent {
+                    target_current_ma: cfg.target_current_ma,
+                    cutoff_voltage_mv: cfg.cutoff_voltage_mv,
+                    cutoff_time_min: cfg.cutoff_time_min,
+                }
+            }
+
+            "DSC-CP" => {
+                let cfg = sqlx::query!(
+                    r#"
+                SELECT
+                    target_power_w as "target_power_w!",
+                    cutoff_voltage_mv as "cutoff_voltage_mv!",
+                    cutoff_time_min as "cutoff_time_min!"
+                FROM discharge_cp_tests
+                WHERE test_id = ?
+                "#,
+                    id
+                )
+                .fetch_one(&self.pool)
+                .await?;
+
+                TestConfig::DischargeConstantPower {
+                    target_power_w: cfg.target_power_w,
+                    cutoff_voltage_mv: cfg.cutoff_voltage_mv,
+                    cutoff_time_min: cfg.cutoff_time_min,
+                }
+            }
+
+            "CHG-CV" => {
+                let cfg = sqlx::query!(
+                    r#"
+                SELECT
+                    target_current_ma as "target_current_ma!",
+                    charge_voltage_mv as "charge_voltage_mv!",
+                    charge_cutoff_current_ma as "charge_cutoff_current_ma!"
+                FROM charge_cv_tests
+                WHERE test_id = ?
+                "#,
+                    id
+                )
+                .fetch_one(&self.pool)
+                .await?;
+
+                TestConfig::ChargeConstantVoltage {
+                    target_current_ma: cfg.target_current_ma,
+                    charge_voltage_mv: cfg.charge_voltage_mv,
+                    charge_cutoff_current_ma: cfg.charge_cutoff_current_ma,
+                }
+            }
+
+            other => {
+                return Err(color_eyre::eyre::eyre!("Unknown test mode: {other}"));
+            }
+        };
+
+        Ok(Some(Test {
+            id: row.id,
+            battery_id: row.battery_id,
+            approved: row.approved,
+            device_id: row.device_id,
+            mode: TestMode {
+                acronym: row.mode_acronym,
+                description: row.mode_description,
+            },
+            voltage_before_test_mv: row.voltage_before_test_mv,
+            config,
+            measured_capacity_mah: row.measured_capacity_mah,
+            measured_energy_mwh: row.measured_energy_mwh,
+            end_voltage_mv: row.end_voltage_mv,
+            notes: row.notes,
+        }))
     }
 
     pub async fn approve_test(&self, id: i64) -> Result<()> {

@@ -41,7 +41,7 @@ CREATE TABLE battery_intake (
         REFERENCES batteries(battery_id)
 );
 
-CREATE TABLE "modes" (
+CREATE TABLE "test_modes" (
 	"acronym"	TEXT PRIMARY KEY,
 	"description"	TEXT NOT NULL,
 	UNIQUE("description")
@@ -49,30 +49,19 @@ CREATE TABLE "modes" (
 
 CREATE TABLE tests (
     id INTEGER PRIMARY KEY,
-
     battery_id TEXT NOT NULL,
     approved INTEGER NOT NULL DEFAULT 0,
-
     device_id TEXT NOT NULL,
     mode TEXT NOT NULL,
-
     voltage_before_test_mv INTEGER NOT NULL,
-
-    target_current_ma INTEGER,
-    target_power_w INTEGER,
-    cutoff_voltage_mv INTEGER,
-    cutoff_time_min INTEGER,
-    charge_voltage_mv INTEGER,
-    charge_cutoff_current_ma INTEGER,
 
     measured_capacity_mah INTEGER,
     measured_energy_mwh INTEGER,
     end_voltage_mv INTEGER,
-
     notes TEXT,
 
     FOREIGN KEY(battery_id) REFERENCES batteries(battery_id),
-    FOREIGN KEY(mode) REFERENCES modes(acronym)
+    FOREIGN KEY(mode) REFERENCES test_modes(acronym)
 );
 
 CREATE UNIQUE INDEX idx_tests_one_approved_per_battery
@@ -102,7 +91,34 @@ CREATE TABLE "samples" (
     FOREIGN KEY("session_id") REFERENCES "test_sessions"("id")
 );
 
-INSERT INTO modes (acronym, description) VALUES
+CREATE TABLE discharge_cc_tests (
+    test_id INTEGER PRIMARY KEY,
+    target_current_ma INTEGER NOT NULL,
+    cutoff_voltage_mv INTEGER NOT NULL,
+    cutoff_time_min INTEGER NOT NULL,
+
+    FOREIGN KEY(test_id) REFERENCES tests(id) ON DELETE CASCADE
+);
+
+CREATE TABLE discharge_cp_tests (
+    test_id INTEGER PRIMARY KEY,
+    target_power_w INTEGER NOT NULL,
+    cutoff_voltage_mv INTEGER NOT NULL,
+    cutoff_time_min INTEGER NOT NULL,
+
+    FOREIGN KEY(test_id) REFERENCES tests(id) ON DELETE CASCADE
+);
+
+CREATE TABLE charge_cv_tests (
+    test_id INTEGER PRIMARY KEY,
+    target_current_ma INTEGER NOT NULL,
+    charge_voltage_mv INTEGER NOT NULL,
+    charge_cutoff_current_ma INTEGER NOT NULL,
+
+    FOREIGN KEY(test_id) REFERENCES tests(id) ON DELETE CASCADE
+);
+
+INSERT INTO test_modes (acronym, description) VALUES
     ('DSC-CC', 'Discharge constant current'),
     ('DSC-CP', 'Discharge constant power'),
     ('CHG-CV', 'Charge constant voltage');

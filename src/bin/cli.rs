@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use ebc_hub::config::Config;
 use ebc_hub::db_access::Storage;
-use ebc_hub::db_access::models::{BatteryIntake, Test};
+use ebc_hub::db_access::models::{BatteryIntake, Test, TestConfig};
 use ebc_hub::ebc;
 use ebc_hub::ebc::frame::OutboundFrame;
 use ebc_hub::ebc_runner::{self, EbcRunner};
@@ -480,21 +480,38 @@ async fn main() -> Result<()> {
                 let value3 = value3.parse::<i64>()?;
                 let voltage_before_test_mv = voltage_before_test_mv.parse::<i64>()?;
 
-                let mut test = Test {
+                let config = match *mode {
+                    "DSC-CC" => TestConfig::DischargeConstantCurrent {
+                        target_current_ma: value1,
+                        cutoff_voltage_mv: value2,
+                        cutoff_time_min: value3,
+                    },
+                    "DSC-CP" => TestConfig::DischargeConstantPower {
+                        target_power_w: value1,
+                        cutoff_voltage_mv: value2,
+                        cutoff_time_min: value3,
+                    },
+                    "CHG-CV" => TestConfig::ChargeConstantVoltage {
+                        target_current_ma: value1,
+                        charge_voltage_mv: value2,
+                        charge_cutoff_current_ma: value3,
+                    },
+                    _ => {
+                        println!("Unknown mode: {mode}");
+                        print!("> ");
+                        continue;
+                    }
+                };
+
+                let test = Test {
                     id: 0,
                     battery_id: battery_id.to_string(),
                     approved: false,
                     device_id: device_id.to_string(),
-                    mode: mode.to_string(),
+                    mode: mode.to_string().into(),
 
                     voltage_before_test_mv,
-
-                    target_current_ma: None,
-                    target_power_w: None,
-                    cutoff_voltage_mv: None,
-                    cutoff_time_min: None,
-                    charge_voltage_mv: None,
-                    charge_cutoff_current_ma: None,
+                    config,
 
                     measured_capacity_mah: None,
                     measured_energy_mwh: None,
@@ -502,29 +519,6 @@ async fn main() -> Result<()> {
 
                     notes: None,
                 };
-
-                match *mode {
-                    "DSC-CC" => {
-                        test.target_current_ma = Some(value1);
-                        test.cutoff_voltage_mv = Some(value2);
-                        test.cutoff_time_min = Some(value3);
-                    }
-                    "DSC-CP" => {
-                        test.target_power_w = Some(value1);
-                        test.cutoff_voltage_mv = Some(value2);
-                        test.cutoff_time_min = Some(value3);
-                    }
-                    "CHG-CV" => {
-                        test.target_current_ma = Some(value1);
-                        test.charge_voltage_mv = Some(value2);
-                        test.charge_cutoff_current_ma = Some(value3);
-                    }
-                    _ => {
-                        println!("Unknown mode: {mode}");
-                        print!("> ");
-                        continue;
-                    }
-                }
 
                 let id = storage.create_test(&test).await?;
 
@@ -545,7 +539,7 @@ async fn main() -> Result<()> {
                             "{} | {} | {} | {} | {}",
                             t.id,
                             t.battery_id,
-                            t.mode,
+                            t.mode.acronym,
                             if t.approved { "yes" } else { "no" },
                             t.device_id
                         );
