@@ -2,7 +2,7 @@ use color_eyre::eyre::{Result, bail};
 use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
 
 use crate::{db_access::models::{
-    Battery, BatteryIntake, BatteryType, Sample, Test, TestConfig, TestMode, TestSession,
+    Battery, BatteryIntake, BatteryType, Sample, Test, TestParameters, TestMode, TestSession,
 }, web::view_models::BatteryListItem};
 
 #[derive(Clone)]
@@ -357,7 +357,7 @@ impl Storage {
         let test_id = result.last_insert_rowid();
 
         match &test.config {
-            TestConfig::DischargeConstantCurrent {
+            TestParameters::DischargeConstantCurrent {
                 target_current_ma,
                 cutoff_voltage_mv,
                 cutoff_time_min,
@@ -381,7 +381,7 @@ impl Storage {
                 .await?;
             }
 
-            TestConfig::DischargeConstantPower {
+            TestParameters::DischargeConstantPower {
                 target_power_w,
                 cutoff_voltage_mv,
                 cutoff_time_min,
@@ -405,7 +405,7 @@ impl Storage {
                 .await?;
             }
 
-            TestConfig::ChargeConstantVoltage {
+            TestParameters::ChargeConstantVoltage {
                 target_current_ma,
                 charge_voltage_mv,
                 charge_cutoff_current_ma,
@@ -502,7 +502,7 @@ impl Storage {
                 .fetch_one(&self.pool)
                 .await?;
 
-                TestConfig::DischargeConstantCurrent {
+                TestParameters::DischargeConstantCurrent {
                     target_current_ma: cfg.target_current_ma,
                     cutoff_voltage_mv: cfg.cutoff_voltage_mv,
                     cutoff_time_min: cfg.cutoff_time_min,
@@ -524,7 +524,7 @@ impl Storage {
                 .fetch_one(&self.pool)
                 .await?;
 
-                TestConfig::DischargeConstantPower {
+                TestParameters::DischargeConstantPower {
                     target_power_w: cfg.target_power_w,
                     cutoff_voltage_mv: cfg.cutoff_voltage_mv,
                     cutoff_time_min: cfg.cutoff_time_min,
@@ -546,7 +546,7 @@ impl Storage {
                 .fetch_one(&self.pool)
                 .await?;
 
-                TestConfig::ChargeConstantVoltage {
+                TestParameters::ChargeConstantVoltage {
                     target_current_ma: cfg.target_current_ma,
                     charge_voltage_mv: cfg.charge_voltage_mv,
                     charge_cutoff_current_ma: cfg.charge_cutoff_current_ma,

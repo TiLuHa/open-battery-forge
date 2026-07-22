@@ -70,7 +70,7 @@ impl TestRunner {
             .await?;
 
         match test.config {
-            crate::db_access::models::TestConfig::DischargeConstantCurrent {
+            crate::db_access::models::TestParameters::DischargeConstantCurrent {
                 target_current_ma,
                 cutoff_voltage_mv,
                 cutoff_time_min,
@@ -83,7 +83,7 @@ impl TestRunner {
                 )
                 .await?;
             }
-            crate::db_access::models::TestConfig::DischargeConstantPower {
+            crate::db_access::models::TestParameters::DischargeConstantPower {
                 target_power_w,
                 cutoff_voltage_mv,
                 cutoff_time_min,
@@ -96,7 +96,7 @@ impl TestRunner {
                 )
                 .await?;
             }
-            crate::db_access::models::TestConfig::ChargeConstantVoltage {
+            crate::db_access::models::TestParameters::ChargeConstantVoltage {
                 target_current_ma,
                 charge_voltage_mv,
                 charge_cutoff_current_ma,
@@ -128,7 +128,7 @@ impl TestRunner {
         };
 
         match test.config {
-            crate::db_access::models::TestConfig::DischargeConstantCurrent {
+            crate::db_access::models::TestParameters::DischargeConstantCurrent {
                 target_current_ma,
                 cutoff_voltage_mv,
                 cutoff_time_min,
@@ -141,7 +141,7 @@ impl TestRunner {
                 )
                 .await?;
             }
-            crate::db_access::models::TestConfig::DischargeConstantPower {
+            crate::db_access::models::TestParameters::DischargeConstantPower {
                 target_power_w,
                 cutoff_voltage_mv,
                 cutoff_time_min,
@@ -154,7 +154,7 @@ impl TestRunner {
                 )
                 .await?;
             }
-            crate::db_access::models::TestConfig::ChargeConstantVoltage {
+            crate::db_access::models::TestParameters::ChargeConstantVoltage {
                 target_current_ma,
                 charge_voltage_mv,
                 charge_cutoff_current_ma,

@@ -1,7 +1,7 @@
 use crate::db_access::models::TestMode;
 
 #[derive(Debug, Clone)]
-pub enum TestConfig {
+pub enum TestParameters {
     DischargeConstantCurrent {
         target_current_ma: i64,
         cutoff_voltage_mv: i64,
@@ -27,7 +27,7 @@ pub struct Test {
     pub device_id: String,
     pub mode: TestMode,
     pub voltage_before_test_mv: i64,
-    pub config: TestConfig,
+    pub config: TestParameters,
     pub measured_capacity_mah: Option<i64>,
     pub measured_energy_mwh: Option<i64>,
     pub end_voltage_mv: Option<i64>,
